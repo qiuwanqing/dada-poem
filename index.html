@@ -7501,7 +7501,22 @@ function updateFloatingButtons() {
   }
 
   const isPanelOpen = libPanelWrap.classList.contains('libDrawerOpen');
-  const actionLayout = positionGlobalActionButtonsForViewport();
+  let actionLayout = null;
+  if (isPanelOpen){
+    if (btnDelete.parentElement !== document.body){
+      actionLayout = positionGlobalActionButtonsForViewport();
+    }
+  } else {
+    actionLayout = positionGlobalActionButtonsForViewport();
+  }
+
+  const currentTops = new Map([
+    [btnDelete.id, btnDelete.getBoundingClientRect().top],
+    [btnDone.id, btnDone.getBoundingClientRect().top],
+    [btnClear.id, btnClear.getBoundingClientRect().top],
+    [btnUndo.id, btnUndo.getBoundingClientRect().top],
+    [btnRedo.id, btnRedo.getBoundingClientRect().top]
+  ]);
 
   if (isPanelOpen) {
     // Library Panel 打开时，按钮跟随 Panel 右侧边缘
@@ -7541,27 +7556,27 @@ function updateFloatingButtons() {
     // 设置 fixed 定位
     btnDelete.style.position = 'fixed';
     btnDelete.style.left = targetLeft + 'px';
-    btnDelete.style.top = (actionLayout?.tops.get(btnDelete.id) ?? btnDelete.dataset.originalTop) + 'px';
+    btnDelete.style.top = (currentTops.get(btnDelete.id) ?? actionLayout?.tops.get(btnDelete.id) ?? btnDelete.dataset.originalTop) + 'px';
     btnDelete.style.zIndex = '1000';
 
     btnDone.style.position = 'fixed';
     btnDone.style.left = targetLeft + 'px';
-    btnDone.style.top = (actionLayout?.tops.get(btnDone.id) ?? btnDone.dataset.originalTop) + 'px';
+    btnDone.style.top = (currentTops.get(btnDone.id) ?? actionLayout?.tops.get(btnDone.id) ?? btnDone.dataset.originalTop) + 'px';
     btnDone.style.zIndex = '1000';
 
     btnClear.style.position = 'fixed';
     btnClear.style.left = targetLeft + 'px';
-    btnClear.style.top = (actionLayout?.tops.get(btnClear.id) ?? btnClear.dataset.originalTop) + 'px';
+    btnClear.style.top = (currentTops.get(btnClear.id) ?? actionLayout?.tops.get(btnClear.id) ?? btnClear.dataset.originalTop) + 'px';
     btnClear.style.zIndex = '1000';
 
     btnUndo.style.position = 'fixed';
     btnUndo.style.left = targetLeft + 'px';
-    btnUndo.style.top = (actionLayout?.tops.get(btnUndo.id) ?? btnUndo.dataset.originalTop) + 'px';
+    btnUndo.style.top = (currentTops.get(btnUndo.id) ?? actionLayout?.tops.get(btnUndo.id) ?? btnUndo.dataset.originalTop) + 'px';
     btnUndo.style.zIndex = '1000';
 
     btnRedo.style.position = 'fixed';
     btnRedo.style.left = targetLeft + 'px';
-    btnRedo.style.top = (actionLayout?.tops.get(btnRedo.id) ?? btnRedo.dataset.originalTop) + 'px';
+    btnRedo.style.top = (currentTops.get(btnRedo.id) ?? actionLayout?.tops.get(btnRedo.id) ?? btnRedo.dataset.originalTop) + 'px';
     btnRedo.style.zIndex = '1000';
 
   } else {
