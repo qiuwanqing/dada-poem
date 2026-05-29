@@ -6509,24 +6509,23 @@ function positionGlobalActionButtonsForViewport(){
   }
 
   const groupRect = globalGroup.getBoundingClientRect();
-  const viewportH = window.visualViewport?.height || window.innerHeight;
   const topMargin = Math.max(0, Math.round(groupRect.top || 26));
-  const totalHeight = buttons.reduce((sum, btn)=>sum + (btn.offsetHeight || 24), 0);
-  const top = Math.max(topMargin, Math.round(viewportH - topMargin - totalHeight));
 
-  globalActionButtons.style.top = `${top}px`;
-  globalActionButtons.style.bottom = "auto";
+  globalActionButtons.style.top = "auto";
+  globalActionButtons.style.bottom = `${topMargin}px`;
+
+  const columnRect = globalActionButtons.getBoundingClientRect();
 
   const tops = new Map();
-  let y = top;
+  let y = columnRect.top;
   buttons.forEach(btn=>{
     tops.set(btn.id, y);
     y += btn.offsetHeight || 24;
   });
 
   return {
-    top,
-    bottom: y,
+    top: columnRect.top,
+    bottom: columnRect.bottom,
     tops
   };
 }
@@ -6541,14 +6540,15 @@ function positionLibraryPanelUnderTrigger(){
 
   const redoTarget = document.getElementById("btnRedoGlobal");
   const redoRect = redoTarget?.getBoundingClientRect?.();
-  const fallbackBottom = window.innerHeight - 18;
+  const viewportH = window.visualViewport?.height || window.innerHeight;
+  const fallbackBottom = viewportH - 18;
 
   if (!isPhoneLayout()){
     const tabletTop = Math.round(rect.bottom + 6);
     const tabletBottom = Math.round(actionLayout?.bottom || redoRect?.bottom || fallbackBottom);
     const tabletHeight = Math.min(
       Math.max(180, tabletBottom - tabletTop),
-      Math.max(180, window.innerHeight - tabletTop - 14)
+      Math.max(180, viewportH - tabletTop - 14)
     );
     libPanelWrap.style.top = `${tabletTop}px`;
     libPanelWrap.style.height = `${tabletHeight}px`;
@@ -7624,6 +7624,21 @@ function syncResponsiveToolLayout(){
   updateFloatingButtons();
 }
 
+function refreshViewportSensitiveLayout(){
+  setVh();
+  resizeDrawLayer();
+  resizeMagnetPreview();
+  syncResponsiveToolLayout();
+}
+
+function scheduleViewportSettlingSync(){
+  [0, 80, 250, 600, 1200].forEach(delay=>{
+    setTimeout(()=>{
+      requestAnimationFrame(refreshViewportSensitiveLayout);
+    }, delay);
+  });
+}
+
 function setupLibraryResize() {
   const handle = document.getElementById('libResizeHandle');
   const libPanelWrap = document.getElementById('libPanelWrap');
@@ -7677,8 +7692,15 @@ function setupLibraryResize() {
 setupLibraryResize();
 
 // 窗口 resize 时同步按钮和 Library Panel 的动态对齐
-window.addEventListener('resize', syncResponsiveToolLayout);
-window.visualViewport?.addEventListener('resize', syncResponsiveToolLayout);
+window.addEventListener('resize', scheduleViewportSettlingSync);
+window.addEventListener('load', scheduleViewportSettlingSync);
+window.addEventListener('pageshow', scheduleViewportSettlingSync);
+document.addEventListener('visibilitychange', ()=>{
+  if (!document.hidden) scheduleViewportSettlingSync();
+});
+window.visualViewport?.addEventListener('resize', scheduleViewportSettlingSync);
+window.visualViewport?.addEventListener('scroll', scheduleViewportSettlingSync);
+scheduleViewportSettlingSync();
 
 ["gesturestart", "gesturechange", "gestureend"].forEach(type=>{
   document.addEventListener(type, (e)=>e.preventDefault(), { passive:false });
