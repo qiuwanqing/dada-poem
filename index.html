@@ -6489,8 +6489,51 @@ function setLibraryDrawerOpen(open){
   }
 }
 
+function positionGlobalActionButtonsForViewport(){
+  const globalActionButtons = document.getElementById("globalActionButtons");
+  const globalGroup = document.getElementById("globalGroup");
+  const buttons = [
+    document.getElementById("btnDeleteSelected"),
+    document.getElementById("btnDoneGlobal"),
+    document.getElementById("btnClearAll"),
+    document.getElementById("btnUndoGlobal"),
+    document.getElementById("btnRedoGlobal")
+  ].filter(Boolean);
+
+  if (!globalActionButtons || !globalGroup || buttons.length === 0) return null;
+
+  if (isPhoneLayout()){
+    globalActionButtons.style.top = "";
+    globalActionButtons.style.bottom = "";
+    return null;
+  }
+
+  const groupRect = globalGroup.getBoundingClientRect();
+  const viewportH = window.visualViewport?.height || window.innerHeight;
+  const topMargin = Math.max(0, Math.round(groupRect.top || 26));
+  const totalHeight = buttons.reduce((sum, btn)=>sum + (btn.offsetHeight || 24), 0);
+  const top = Math.max(topMargin, Math.round(viewportH - topMargin - totalHeight));
+
+  globalActionButtons.style.top = `${top}px`;
+  globalActionButtons.style.bottom = "auto";
+
+  const tops = new Map();
+  let y = top;
+  buttons.forEach(btn=>{
+    tops.set(btn.id, y);
+    y += btn.offsetHeight || 24;
+  });
+
+  return {
+    top,
+    bottom: y,
+    tops
+  };
+}
+
 function positionLibraryPanelUnderTrigger(){
   if (!libPanelWrap) return;
+  const actionLayout = positionGlobalActionButtonsForViewport();
   const stickerBtn = document.getElementById("btnLibrary");
   const target = stickerBtn?.querySelector?.("img") || stickerBtn;
   const rect = target?.getBoundingClientRect?.();
@@ -6502,7 +6545,7 @@ function positionLibraryPanelUnderTrigger(){
 
   if (!isPhoneLayout()){
     const tabletTop = Math.round(rect.bottom + 6);
-    const tabletBottom = Math.round(redoRect?.bottom || fallbackBottom);
+    const tabletBottom = Math.round(actionLayout?.bottom || redoRect?.bottom || fallbackBottom);
     const tabletHeight = Math.min(
       Math.max(180, tabletBottom - tabletTop),
       Math.max(180, window.innerHeight - tabletTop - 14)
@@ -7458,6 +7501,7 @@ function updateFloatingButtons() {
   }
 
   const isPanelOpen = libPanelWrap.classList.contains('libDrawerOpen');
+  const actionLayout = positionGlobalActionButtonsForViewport();
 
   if (isPanelOpen) {
     // Library Panel 打开时，按钮跟随 Panel 右侧边缘
@@ -7497,27 +7541,27 @@ function updateFloatingButtons() {
     // 设置 fixed 定位
     btnDelete.style.position = 'fixed';
     btnDelete.style.left = targetLeft + 'px';
-    btnDelete.style.top = btnDelete.dataset.originalTop + 'px';
+    btnDelete.style.top = (actionLayout?.tops.get(btnDelete.id) ?? btnDelete.dataset.originalTop) + 'px';
     btnDelete.style.zIndex = '1000';
 
     btnDone.style.position = 'fixed';
     btnDone.style.left = targetLeft + 'px';
-    btnDone.style.top = btnDone.dataset.originalTop + 'px';
+    btnDone.style.top = (actionLayout?.tops.get(btnDone.id) ?? btnDone.dataset.originalTop) + 'px';
     btnDone.style.zIndex = '1000';
 
     btnClear.style.position = 'fixed';
     btnClear.style.left = targetLeft + 'px';
-    btnClear.style.top = btnClear.dataset.originalTop + 'px';
+    btnClear.style.top = (actionLayout?.tops.get(btnClear.id) ?? btnClear.dataset.originalTop) + 'px';
     btnClear.style.zIndex = '1000';
 
     btnUndo.style.position = 'fixed';
     btnUndo.style.left = targetLeft + 'px';
-    btnUndo.style.top = btnUndo.dataset.originalTop + 'px';
+    btnUndo.style.top = (actionLayout?.tops.get(btnUndo.id) ?? btnUndo.dataset.originalTop) + 'px';
     btnUndo.style.zIndex = '1000';
 
     btnRedo.style.position = 'fixed';
     btnRedo.style.left = targetLeft + 'px';
-    btnRedo.style.top = btnRedo.dataset.originalTop + 'px';
+    btnRedo.style.top = (actionLayout?.tops.get(btnRedo.id) ?? btnRedo.dataset.originalTop) + 'px';
     btnRedo.style.zIndex = '1000';
 
   } else {
@@ -7569,6 +7613,15 @@ function updateFloatingButtons() {
     delete btnUndo.dataset.originalParent;
     delete btnRedo.dataset.originalParent;
   }
+}
+
+function syncResponsiveToolLayout(){
+  if (libPanelWrap?.classList.contains("libDrawerOpen")){
+    positionLibraryPanelUnderTrigger();
+  } else {
+    positionGlobalActionButtonsForViewport();
+  }
+  updateFloatingButtons();
 }
 
 function setupLibraryResize() {
@@ -7623,9 +7676,9 @@ function setupLibraryResize() {
 // 初始化 resize 功能
 setupLibraryResize();
 
-// 窗口 resize 时更新按钮位置
-window.addEventListener('resize', updateFloatingButtons);
-window.visualViewport?.addEventListener('resize', updateFloatingButtons);
+// 窗口 resize 时同步按钮和 Library Panel 的动态对齐
+window.addEventListener('resize', syncResponsiveToolLayout);
+window.visualViewport?.addEventListener('resize', syncResponsiveToolLayout);
 
 ["gesturestart", "gesturechange", "gestureend"].forEach(type=>{
   document.addEventListener(type, (e)=>e.preventDefault(), { passive:false });
