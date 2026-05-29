@@ -1562,13 +1562,13 @@
         left:0;
         right:0;
         top:0;
-        height:168px;
+        height:82px;
         z-index:3;
         pointer-events:none;
         background:linear-gradient(
           to bottom,
-          rgba(0,0,0,.92) 0%,
-          rgba(0,0,0,.58) 42%,
+          rgba(0,0,0,.74) 0%,
+          rgba(0,0,0,.36) 38%,
           rgba(0,0,0,0) 100%
         );
       }
@@ -6501,11 +6501,11 @@ function positionLibraryPanelUnderTrigger(){
   const fallbackBottom = window.innerHeight - 18;
 
   if (!isPhoneLayout()){
-    const tabletTop = Math.max(92, Math.round(rect.bottom - 8));
-    const tabletBottom = Math.max(tabletTop + 280, Math.round(redoRect?.bottom || fallbackBottom));
+    const tabletTop = Math.round(rect.bottom + 6);
+    const tabletBottom = Math.round(redoRect?.bottom || fallbackBottom);
     const tabletHeight = Math.min(
-      Math.max(280, tabletBottom - tabletTop),
-      Math.max(280, window.innerHeight - tabletTop - 14)
+      Math.max(180, tabletBottom - tabletTop),
+      Math.max(180, window.innerHeight - tabletTop - 14)
     );
     libPanelWrap.style.top = `${tabletTop}px`;
     libPanelWrap.style.height = `${tabletHeight}px`;
