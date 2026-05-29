@@ -636,8 +636,6 @@
       #libPanelWrap{
         top: 150px;
         width: 240px;
-        height: 75vh;
-        max-height: 75vh;
       }
       #libPanel{
         height: 100%;
@@ -1558,6 +1556,23 @@
     }
 
     @media (pointer: coarse) and (min-width: 700px) and (max-width: 1200px) {
+      #stage::before{
+        content:"";
+        position:absolute;
+        left:0;
+        right:0;
+        top:0;
+        height:168px;
+        z-index:3;
+        pointer-events:none;
+        background:linear-gradient(
+          to bottom,
+          rgba(0,0,0,.92) 0%,
+          rgba(0,0,0,.58) 42%,
+          rgba(0,0,0,0) 100%
+        );
+      }
+
       .topbar{
         position:absolute;
         top:0;
@@ -1625,8 +1640,6 @@
         left:22px;
         width:260px;
         min-width:240px;
-        height:75vh;
-        max-height:75vh;
         transform:none !important;
         transition:none;
         pointer-events:auto;
@@ -6483,17 +6496,24 @@ function positionLibraryPanelUnderTrigger(){
   const rect = target?.getBoundingClientRect?.();
   if (!rect) return;
 
-  const top = Math.round(rect.bottom + 6);
-  if (!isPhoneLayout()){
-    libPanelWrap.style.top = `${top}px`;
-    libPanelWrap.style.height = "75vh";
-    libPanelWrap.style.maxHeight = "75vh";
-    return;
-  }
-
   const redoTarget = document.getElementById("btnRedoGlobal");
   const redoRect = redoTarget?.getBoundingClientRect?.();
   const fallbackBottom = window.innerHeight - 18;
+
+  if (!isPhoneLayout()){
+    const tabletTop = Math.max(92, Math.round(rect.bottom - 8));
+    const tabletBottom = Math.max(tabletTop + 280, Math.round(redoRect?.bottom || fallbackBottom));
+    const tabletHeight = Math.min(
+      Math.max(280, tabletBottom - tabletTop),
+      Math.max(280, window.innerHeight - tabletTop - 14)
+    );
+    libPanelWrap.style.top = `${tabletTop}px`;
+    libPanelWrap.style.height = `${tabletHeight}px`;
+    libPanelWrap.style.maxHeight = `${tabletHeight}px`;
+    return;
+  }
+
+  const top = Math.round(rect.bottom + 6);
   const bottom = Math.max(top + 220, Math.round((redoRect?.bottom || fallbackBottom)));
   const height = Math.max(220, bottom - top);
 
