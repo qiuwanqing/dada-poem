@@ -379,17 +379,15 @@
 
     #gridbar{
       position: fixed;
-      left:0; 
-      right:0; 
-      bottom:0;
+      inset:0;
       z-index: 9999;
-      padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+      padding:0;
       display:none;
       gap:8px;
       flex-wrap:wrap;
       align-items:center;
       justify-content:center;
-      background: linear-gradient(to top, rgba(0,0,0,.92), rgba(0,0,0,0));
+      background:transparent;
       pointer-events:none;
     }
     #gridbar *{ pointer-events:auto; }
@@ -2683,6 +2681,44 @@ function positionFloatingControlsNearSelected(panel){
       el.style.top = `${y}px`;
       x += (el.offsetWidth || NUMBER_DIAL_SIZE_PX) + gap;
     });
+  });
+}
+
+function positionGridControlsNearPendingRect(){
+  if (!pendingGridRect || gridbar.style.display === "none") return;
+
+  requestAnimationFrame(()=>{
+    const controls = Array.from(gridbar.querySelectorAll(".pill"))
+      .filter(el => getComputedStyle(el).display !== "none");
+    if (controls.length < 2) return;
+
+    const stageRect = stage.getBoundingClientRect();
+    const viewportW = window.visualViewport?.width || window.innerWidth;
+    const viewportH = window.visualViewport?.height || window.innerHeight;
+    const margin = 12;
+    const gap = 68;
+    const sizes = controls.map(el => ({
+      w: el.offsetWidth || NUMBER_DIAL_SIZE_PX,
+      h: el.offsetHeight || NUMBER_DIAL_SIZE_PX
+    }));
+
+    const leftSize = sizes[0];
+    const rightSize = sizes[1];
+    const groupW = leftSize.w + gap + rightSize.w;
+    const centerX = stageRect.left + pendingGridRect.x + pendingGridRect.w / 2;
+    let x = centerX - groupW / 2;
+    x = Math.max(margin, Math.min(viewportW - groupW - margin, x));
+
+    const maxH = Math.max(leftSize.h, rightSize.h);
+    const gridBottom = stageRect.top + pendingGridRect.y + pendingGridRect.h;
+    const maxOverlap = Math.min(pendingGridRect.h * 0.30, maxH * 0.36);
+    let y = gridBottom - maxOverlap;
+    y = Math.max(margin, Math.min(viewportH - maxH - margin, y));
+
+    controls[0].style.left = `${x}px`;
+    controls[0].style.top = `${y}px`;
+    controls[1].style.left = `${x + leftSize.w + gap}px`;
+    controls[1].style.top = `${y}px`;
   });
 }
 
@@ -5492,6 +5528,7 @@ function applySideExtrude(thickness=18, dx=1, dy=1, darken=0.35, isPreview=false
       gridbar.style.display = "flex";
       syncControlLabelVisibility(gridbar);
       updateCircularControls();
+      positionGridControlsNearPendingRect();
 
       showRoiGridPreview(true);
       updateRoiGridPreview();
@@ -7031,6 +7068,7 @@ btnLibDelete.addEventListener("click", async (e)=>{
       gridRowsVal.textContent = String(gridRowsEl.value);
       gridColsVal.textContent = String(gridColsEl.value);
       updateRoiGridPreview();
+      positionGridControlsNearPendingRect();
       updateCircularControls();
     }
     gridRowsEl.addEventListener("input", syncGridVals);
@@ -7643,6 +7681,7 @@ function refreshViewportSensitiveLayout(){
   setVh();
   resizeDrawLayer();
   resizeMagnetPreview();
+  positionGridControlsNearPendingRect();
   syncResponsiveToolLayout();
 }
 
