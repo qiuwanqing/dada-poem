@@ -1,7 +1,6 @@
 # Dada Poem
 
 **dada poem** is an experimental camera-poetry interface for making visual poems from live surroundings.
-**dada poem**
 
 It combines real-time camera capture, interactive segmentation, collage editing, physics-based motion, and cloud archiving into a mobile-first creative tool. Users can cut objects from the camera view, turn them into movable stickers, transform them with tactile controls, and assemble them into playful, unstable Dada-style compositions.
  sticker playfulunstable
