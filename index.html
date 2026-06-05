@@ -6976,6 +6976,16 @@ function showGuideStep(step){
   }
   document.body.appendChild(overlay);
   guideOverlay = overlay;
+
+  if (step === "leftClose" || step === "rightOpen" || step === "rightClose"){
+    requestAnimationFrame(()=>{
+      const arrow = overlay.querySelector(".guideArrow");
+      const flipTarget = document.querySelector("#btnFlip img") || document.getElementById("btnFlip");
+      const rect = flipTarget?.getBoundingClientRect?.();
+      if (!arrow || !rect) return;
+      arrow.style.top = `${Math.max(8, rect.top + rect.height / 2 - arrow.offsetHeight / 2)}px`;
+    });
+  }
 }
 
 function queueGuideStep(step, delay){
