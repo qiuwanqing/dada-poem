@@ -4208,6 +4208,11 @@ async function fetchInitBuffer(url, label){
 }
 
 async function initModel(){
+  const onboardingFallbackTimer = setTimeout(()=>{
+    startOnboardingGuide();
+    showHint("MP is still loading. Draw, Rect and Grid are ready.", 1500);
+  }, 5000);
+
   const modelHint = (text)=>{
     loader.style.display = "none";
     showHint(text, 2200);
@@ -4288,6 +4293,7 @@ async function initModel(){
     clearTimeout(showHint._t);
     hint.classList.remove("show");
     startOnboardingGuide();
+    showHint("MP capture is ready", 900);
 
   }catch(err){
     const details = initErrorText(err);
@@ -4295,6 +4301,8 @@ async function initModel(){
     loader.style.display = "none";
     showHint("MediaPipe model failed to load. Other capture modes are still available.", 1800);
     setTimeout(startOnboardingGuide, 1900);
+  }finally{
+    clearTimeout(onboardingFallbackTimer);
   }
 }
 
@@ -4325,6 +4333,12 @@ async function initModel(){
     }
 
     function setCaptureMode(m){
+      if (m === "mp" && !interactiveSegmenter){
+        captureMode = "none";
+        btnModeMP.classList.remove("active");
+        showHint("MP is still loading. Try Draw, Rect or Grid for now.", 1300);
+        return;
+      }
       captureMode = m;
       btnModeMP.classList.toggle("active", m==="mp");
       btnModeRect.classList.toggle("active", m==="rect");
@@ -4677,6 +4691,16 @@ async function initModel(){
         if (paintUndoStack.length > 24) paintUndoStack.shift();
         trimStickerCanvasToContent(session.st, 2);
       }
+      return true;
+    }
+
+    function resetCutToStart(){
+      if (!cutSession || cutSession.st !== selected || !cutSession.originalSnap) return false;
+      restoreStickerState(cutSession.st, cutSession.originalSnap);
+      cutSession.changed = false;
+      hideROI();
+      clearPathPreview();
+      showHint("CUT reset to start", 750);
       return true;
     }
 
@@ -5150,6 +5174,9 @@ if (editMode === "mblur"){
     }
 
     function undoSelectedSticker(){
+      if (cutSession?.st === selected){
+        return resetCutToStart();
+      }
       if (!selected || paintUndoStack.length === 0) return false;
       const current = captureStickerState(selected);
       const prev = paintUndoStack.pop();
