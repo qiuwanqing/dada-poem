@@ -915,6 +915,58 @@
     align-items: flex-start;
 }
 
+body.phoneActionsSplit #globalActionButtons{
+    position:fixed;
+    inset:0;
+    z-index:90;
+    pointer-events:none;
+}
+
+body.phoneActionsSplit #globalActionButtons > button{
+    position:fixed;
+    margin:0;
+    pointer-events:auto;
+}
+
+body.phoneActionsSplit #btnDeleteSelected{
+    top:26px;
+    left:calc(50% - 64px);
+    transform:translateX(-50%);
+}
+
+body.phoneActionsSplit #btnDoneGlobal{
+    top:26px;
+    left:50%;
+    transform:translateX(-50%);
+}
+
+body.phoneActionsSplit #btnClearAll{
+    top:26px;
+    left:calc(50% + 64px);
+    transform:translateX(-50%);
+}
+
+body.phoneActionsSplit #btnUndoGlobal{
+    top:auto;
+    bottom:50px;
+    left:calc(50% - 42px);
+    transform:translateX(-50%);
+}
+
+body.phoneActionsSplit #btnRedoGlobal{
+    top:auto;
+    bottom:50px;
+    left:calc(50% + 42px);
+    transform:translateX(-50%);
+}
+
+body.phoneActionsSplit #btnUndoGlobal img,
+body.phoneActionsSplit #btnRedoGlobal img{
+    height:28px;
+    width:auto;
+    margin:0;
+}
+
  /* ---------------- 折叠弹动 ---------------- */
    #rightColumn {
     position: absolute;
@@ -1315,8 +1367,8 @@
     }
     #captureTourCenter{
       position:absolute;
-      width:120px;
-      height:105px;
+      width:90px;
+      height:auto;
       transform:translate(-50%, -50%);
       pointer-events:auto;
       touch-action:none;
@@ -1378,12 +1430,12 @@
       will-change:transform, opacity;
     }
     .guideArrow.left{
-      left:24px;
+      left:86px;
       top:45%;
       animation:guideArrowLeft 1.05s ease-in-out infinite;
     }
     .guideArrow.right{
-      right:24px;
+      right:86px;
       top:45%;
       animation:guideArrowRight 1.05s ease-in-out infinite;
     }
@@ -1403,13 +1455,24 @@
       box-shadow:0 8px 28px rgba(0,0,0,.18);
     }
     .guideText.left{
-      left:54px;
+      left:86px;
       top:calc(45% + 50px);
     }
     .guideText.right{
-      right:54px;
+      right:86px;
       top:calc(45% + 50px);
       text-align:right;
+    }
+    .guideText.rightSwipe{
+      max-width:none;
+      padding:0;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+      box-shadow:none;
+      white-space:nowrap;
     }
     .guideDot{
       position:absolute;
@@ -1423,6 +1486,15 @@
       box-shadow:0 0 0 0 rgba(255,255,255,.26), 0 2px 16px rgba(0,0,0,.22);
       animation:guideDotPulse 1.05s ease-in-out infinite;
     }
+    .guideDot.startCameraTap{
+      width:18px;
+      height:18px;
+      z-index:4;
+      background:rgba(255,255,255,.72);
+      border:0;
+      box-shadow:0 0 0 0 rgba(255,255,255,.75), 0 2px 8px rgba(0,0,0,.7);
+      animation-name:guideStartCameraDotPulse;
+    }
     .guideText.capture{
       left:50%;
       top:calc(47% + 26px);
@@ -1433,11 +1505,28 @@
     .guideText.startCamera{
       left:104px;
       top:78px;
-      max-width:190px;
+      max-width:none;
+      padding:0;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+      box-shadow:none;
+      white-space:nowrap;
     }
     .guideText.leftClose{
       left:54px;
       top:45%;
+      max-width:none;
+      padding:0;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+      box-shadow:none;
+      white-space:nowrap;
     }
     @keyframes guideArrowLeft{
       0%,100%{ transform:translateX(14px); opacity:.28; }
@@ -1450,6 +1539,10 @@
     @keyframes guideDotPulse{
       0%,100%{ opacity:.36; box-shadow:0 0 0 0 rgba(255,255,255,.20), 0 2px 16px rgba(0,0,0,.22); }
       50%{ opacity:.86; box-shadow:0 0 0 16px rgba(255,255,255,.05), 0 2px 16px rgba(0,0,0,.22); }
+    }
+    @keyframes guideStartCameraDotPulse{
+      0%,100%{ opacity:.28; box-shadow:0 0 0 0 rgba(255,255,255,.18), 0 2px 8px rgba(0,0,0,.28); }
+      50%{ opacity:.68; box-shadow:0 0 0 16px rgba(255,255,255,.04), 0 2px 8px rgba(0,0,0,.28); }
     }
 
 
@@ -2245,13 +2338,13 @@
       const cx = clamp(clientX, pad, window.innerWidth - pad);
       const cy = clamp(clientY, pad, window.innerHeight - pad);
       const items = [
-        { mode:"mp",   png:"MP.png",   alt:"MP",   w:44, r:100 },
-        { mode:"draw", png:"draw2.png", alt:"DRAW", w:58, r:105 },
-        { mode:"rect", png:"rect.png", alt:"RECT", w:44, r:110 },
-        { mode:"grid", png:"grid.png", alt:"GRID", w:50, r:110 }
+        { mode:"mp",   png:"MP.png",   alt:"MP",   w:44, r:94 },
+        { mode:"draw", png:"draw2.png", alt:"DRAW", w:48, r:98 },
+        { mode:"rect", png:"rect.png", alt:"RECT", w:40, r:102, angleNudge:4 },
+        { mode:"grid", png:"grid.png", alt:"GRID", w:46, r:102, angleNudge:8 }
       ];
       const tourArcCenter = Math.PI;
-      const tourArcSpread = (82 / 180) * Math.PI;
+      const tourArcSpread = (76 / 180) * Math.PI;
       let centerRotation = Math.PI;
       let draggingDial = false;
       let hoveredIdx = -1;
@@ -2307,7 +2400,8 @@
 
       function itemAngle(i){
         const t = items.length > 1 ? i / (items.length - 1) : 0.5;
-        return tourArcCenter + tourArcSpread / 2 - t * tourArcSpread;
+        return tourArcCenter + tourArcSpread / 2 - t * tourArcSpread
+          + ((items[i].angleNudge || 0) * Math.PI / 180);
       }
 
       function updateCenterRotation(){
@@ -6984,11 +7078,13 @@ function setLibraryDrawerOpen(open){
     libPanelWrap.classList.add("libDrawerActive");
     requestAnimationFrame(()=>{
       libPanelWrap.classList.add("libDrawerOpen");
+      syncPhoneActionLayout();
       updateFloatingButtons();
       requestAnimationFrame(updateFloatingButtons);
     });
   } else {
     libPanelWrap.classList.remove("libDrawerOpen");
+    syncPhoneActionLayout();
     updateFloatingButtons();
     clearTimeout(libPanelWrap._drawerCloseTimer);
     libPanelWrap._drawerCloseTimer = setTimeout(()=>{
@@ -6996,6 +7092,7 @@ function setLibraryDrawerOpen(open){
         libPanelWrap.classList.remove("libDrawerActive", "libDrawerPeeking", "libDrawerDragging");
         libPanelWrap.style.display = "none";
         libPanelWrap.style.transform = "";
+        syncPhoneActionLayout();
         updateFloatingButtons();
       }
     }, 280);
@@ -7110,6 +7207,17 @@ function isPhoneLayout(){
   return phoneLayoutMQ.matches;
 }
 
+function syncPhoneActionLayout(){
+  const drawersClosed =
+    !document.body.classList.contains("leftToolsOpen") &&
+    !document.body.classList.contains("rightToolsOpen");
+  const libraryClosed = !libPanelWrap?.classList.contains("libDrawerOpen");
+  document.body.classList.toggle(
+    "phoneActionsSplit",
+    isPhoneLayout() && drawersClosed && libraryClosed
+  );
+}
+
 function clearGuideOverlay(){
   guideOverlay?.remove();
   guideOverlay = null;
@@ -7140,6 +7248,7 @@ function showGuideStep(step){
   overlay.id = "guideOverlay";
   if (step === "startCamera"){
     overlay.innerHTML = `
+      <div class="guideDot startCameraTap"></div>
       <div class="guideText startCamera">Tap Start Camera to begin.</div>
     `;
   } else if (step === "leftClose"){
@@ -7150,12 +7259,12 @@ function showGuideStep(step){
   } else if (step === "rightOpen"){
     overlay.innerHTML = `
       <div class="guideArrow right openRight">&#8592;</div>
-      <div class="guideText right">Swipe left from the right edge to open Capture / Video / Physics.</div>
+      <div class="guideText right rightSwipe">Swipe left from the right edge to open the function.</div>
     `;
   } else if (step === "rightClose"){
     overlay.innerHTML = `
       <div class="guideArrow right">&#8594;</div>
-      <div class="guideText right">Swipe right to close the tool drawer.</div>
+      <div class="guideText right rightSwipe">Swipe right to close.</div>
     `;
   } else if (step === "capture"){
     overlay.innerHTML = `
@@ -7166,15 +7275,63 @@ function showGuideStep(step){
   document.body.appendChild(overlay);
   guideOverlay = overlay;
 
-  if (step === "leftClose" || step === "rightOpen" || step === "rightClose"){
+  if (step === "startCamera"){
+    const positionStartCameraGuide = (positionGuide = true)=>{
+      if (!overlay.isConnected || guideStep !== "startCamera") return;
+      const guide = overlay.querySelector(".guideText.startCamera");
+      const tapDot = overlay.querySelector(".guideDot.startCameraTap");
+      const startTarget = document.querySelector("#btnStart img") || document.getElementById("btnStart");
+      const rect = startTarget?.getBoundingClientRect?.();
+      if (!guide || !rect) return;
+      const startGuideOffsetX = 90;
+      const startGuideOffsetY = 34;
+      const startGuideVisualNudgeX = 36;
+      const maxLeft = window.innerWidth - guide.offsetWidth - 10;
+      if (positionGuide){
+        guide.style.left = `${Math.max(74, Math.min(maxLeft, rect.right + startGuideOffsetX))}px`;
+        guide.style.top = `${Math.max(8, rect.top + rect.height / 2 - guide.offsetHeight / 2 + startGuideOffsetY)}px`;
+        guide.style.transform = `translateX(${startGuideVisualNudgeX}px)`;
+      }
+      if (tapDot){
+        tapDot.style.left = `${rect.left + rect.width / 2 + 17}px`;
+        tapDot.style.top = `${Math.max(12, rect.top + 6)}px`;
+      }
+    };
+    requestAnimationFrame(positionStartCameraGuide);
+    setTimeout(()=>positionStartCameraGuide(false), 360);
+  } else if (step === "leftClose" || step === "rightOpen" || step === "rightClose"){
     requestAnimationFrame(()=>{
       const arrow = overlay.querySelector(".guideArrow");
       const guide = overlay.querySelector(".guideText");
-      const flipTarget = document.querySelector("#btnFlip img") || document.getElementById("btnFlip");
-      const rect = flipTarget?.getBoundingClientRect?.();
+      const target = step === "leftClose"
+        ? (document.querySelector("#btnFlip img") || document.getElementById("btnFlip"))
+        : (document.querySelector("#captureGroup > .foldBtn img") || document.getElementById("captureGroup"));
+      const rect = target?.getBoundingClientRect?.();
       if (!arrow || !rect) return;
-      const centerY = rect.top + rect.height / 2;
+      const rightGuideOffsetY = step === "rightOpen" || step === "rightClose" ? 30 : 0;
+      const centerY = rect.top + rect.height / 2 + rightGuideOffsetY;
       arrow.style.top = `${Math.max(8, centerY - arrow.offsetHeight / 2)}px`;
+      if (step === "leftClose"){
+        arrow.style.left = `${rect.right + 12}px`;
+        arrow.style.right = "auto";
+        if (guide){
+          guide.style.left = `${rect.right + 72}px`;
+          guide.style.right = "auto";
+        }
+      } else {
+        arrow.style.right = `${Math.max(8, window.innerWidth - rect.left + 12)}px`;
+        arrow.style.left = "auto";
+        if (guide && step === "rightClose"){
+          const rightCloseGuideNudgeX = 134;
+          guide.style.transform = `translateX(-${rightCloseGuideNudgeX}px)`;
+          requestAnimationFrame(()=>{
+            const guideRect = guide.getBoundingClientRect();
+            arrow.style.display = "block";
+            arrow.style.left = `${guideRect.right + 10}px`;
+            arrow.style.right = "auto";
+          });
+        }
+      }
       if (guide){
         guide.style.top = `${Math.max(8, centerY - guide.offsetHeight / 2)}px`;
       }
@@ -7207,6 +7364,7 @@ function completeGuideStep(step){
 
 function setLeftToolsOpen(open){
   document.body.classList.toggle("leftToolsOpen", !!open);
+  syncPhoneActionLayout();
   if (!open){
     collapseFunctionGroups(document.getElementById("globalGroup"));
     setLibraryDrawerOpen(false);
@@ -7216,6 +7374,7 @@ function setLeftToolsOpen(open){
 
 function setRightToolsOpen(open){
   document.body.classList.toggle("rightToolsOpen", !!open);
+  syncPhoneActionLayout();
   if (open) completeGuideStep("rightOpen");
   if (!open){
     collapseFunctionGroups(document.getElementById("rightColumn"));
@@ -8170,6 +8329,7 @@ function updateFloatingButtons() {
 }
 
 function syncResponsiveToolLayout(){
+  syncPhoneActionLayout();
   if (libPanelWrap?.classList.contains("libDrawerOpen")){
     positionLibraryPanelUnderTrigger();
   } else {
@@ -8255,6 +8415,8 @@ document.addEventListener('visibilitychange', ()=>{
 });
 window.visualViewport?.addEventListener('resize', scheduleViewportSettlingSync);
 window.visualViewport?.addEventListener('scroll', scheduleViewportSettlingSync);
+phoneLayoutMQ.addEventListener?.('change', syncResponsiveToolLayout);
+syncPhoneActionLayout();
 scheduleViewportSettlingSync();
 
 ["gesturestart", "gesturechange", "gestureend"].forEach(type=>{
