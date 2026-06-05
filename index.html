@@ -427,36 +427,37 @@
       background:transparent;
       pointer-events:none;
     }
-    #cutPanel{
+    #cutToolRingContainer{
       position:fixed;
-      left:50%;
-      bottom:calc(18px + env(safe-area-inset-bottom));
-      transform:translateX(-50%);
+      inset:0;
       z-index:10020;
-      display:none;
-      gap:5px;
-      align-items:center;
-      padding:5px;
-      background:rgba(0,0,0,.52);
-      border:1px solid rgba(255,255,255,.18);
-      backdrop-filter:blur(10px);
-      -webkit-backdrop-filter:blur(10px);
+      pointer-events:none;
+    }
+    .cutToolRingBtn{
+      position:absolute;
+      transform:translate(-50%, -50%);
+      border:0;
+      padding:0;
+      background:none;
       pointer-events:auto;
-    }
-    #cutPanel button{
-      min-width:42px;
-      height:28px;
-      padding:0 7px;
-      border:1px solid transparent;
-      border-radius:0;
-      background:transparent;
-      color:#fff;
-      font:700 9px Helvetica, Arial, sans-serif;
+      touch-action:none;
       cursor:pointer;
+      transition:transform 120ms ease, filter 120ms ease;
     }
-    #cutPanel button.active{
-      border-color:#fff;
-      background:rgba(255,255,255,.18);
+    .cutToolRingBtn img{
+      display:block;
+      height:auto;
+      pointer-events:none;
+    }
+    #cutToolRingCenter{
+      position:absolute;
+      width:80px;
+      height:auto;
+      transform:translate(-50%, -50%);
+      transform-origin:center center;
+      pointer-events:auto;
+      touch-action:none;
+      cursor:grab;
     }
     #brushPanel * {
       pointer-events:auto;
@@ -2003,14 +2004,6 @@
     </div>
   </div>
 
-  <div id="cutPanel" aria-label="Cut tools">
-    <button type="button" data-cut-tool="mp">MP</button>
-    <button type="button" data-cut-tool="draw">DRAW</button>
-    <button type="button" data-cut-tool="rect">RECT</button>
-    <button type="button" data-cut-tool="erase">ERASE</button>
-    <button type="button" data-cut-tool="restore">RESTORE</button>
-  </div>
-
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
       
@@ -2037,7 +2030,6 @@
       // 编辑栏
       const editbar = document.getElementById("editbar");
       const brushPanel = document.getElementById("brushPanel");
-      const cutPanel = document.getElementById("cutPanel");
       const radiusEl = document.getElementById("radius");
       const strengthEl = document.getElementById("strength");
       const radiusLabelEl = document.getElementById("radiusLabel");
@@ -4639,8 +4631,12 @@ async function initModel(){
 
     function setCutTool(tool){
       cutTool = tool;
-      cutPanel?.querySelectorAll("[data-cut-tool]").forEach(btn=>{
+      document.querySelectorAll("#cutToolRingContainer [data-cut-tool]").forEach(btn=>{
         btn.classList.toggle("active", btn.dataset.cutTool === tool);
+        btn.style.transform = btn.dataset.cutTool === tool
+          ? "translate(-50%, -50%) scale(1.30)"
+          : "translate(-50%, -50%) scale(1)";
+        btn.style.filter = btn.dataset.cutTool === tool ? "brightness(1.35)" : "none";
       });
       const messages = {
         mp: "CUT MP: tap inside the sticker",
@@ -4650,6 +4646,175 @@ async function initModel(){
         restore: "CUT RESTORE: paint original pixels back"
       };
       showHint(messages[tool] || "CUT", 900);
+    }
+
+    function closeCutToolRing(){
+      document.getElementById("cutToolRingContainer")?.remove();
+    }
+
+    function showCutToolRing(clientX, clientY){
+      closeCutToolRing();
+
+      const container = document.createElement("div");
+      container.id = "cutToolRingContainer";
+      document.body.appendChild(container);
+
+      const pad = 116;
+      let cx = clamp(clientX, pad, window.innerWidth - pad);
+      let cy = clamp(clientY, pad, window.innerHeight - pad);
+      const items = [
+        { tool:"mp",      png:"MP.png",      alt:"MP",      w:32, r:78 },
+        { tool:"draw",    png:"draw2.png",   alt:"DRAW",    w:42, r:82 },
+        { tool:"rect",    png:"rect.png",    alt:"RECT",    w:26, r:86 },
+        { tool:"erase",   png:"erase.png",   alt:"ERASE",   w:35, r:84 },
+        { tool:"restore", png:"restore.png", alt:"RESTORE", w:45, r:80 }
+      ];
+      const arcCenter = Math.PI;
+      const arcSpread = 86 * Math.PI / 180;
+      let centerRotation = Math.PI;
+      let draggingDial = false;
+      let movingRing = false;
+      let hoveredIdx = -1;
+      let centerPointerId = null;
+      let centerStartX = 0;
+      let centerStartY = 0;
+      let moveOffsetX = 0;
+      let moveOffsetY = 0;
+      let moveTimer = 0;
+      const moveLongPressMs = 420;
+      const rotateThreshold = 7;
+
+      function itemAngle(i){
+        const t = items.length > 1 ? i / (items.length - 1) : 0.5;
+        return arcCenter + arcSpread / 2 - t * arcSpread;
+      }
+
+      const center = document.createElement("img");
+      center.id = "cutToolRingCenter";
+      center.src = "assets/round.png";
+      center.alt = "";
+      center.draggable = false;
+      center.style.left = `${cx}px`;
+      center.style.top = `${cy}px`;
+      container.appendChild(center);
+
+      const btnEls = items.map((item, i)=>{
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "cutToolRingBtn";
+        btn.dataset.cutTool = item.tool;
+        const angle = itemAngle(i);
+        btn.style.left = `${cx + Math.cos(angle) * item.r}px`;
+        btn.style.top = `${cy + Math.sin(angle) * item.r}px`;
+        const img = document.createElement("img");
+        img.src = `assets/${item.png}`;
+        img.alt = item.alt;
+        img.style.width = `${item.w}px`;
+        btn.appendChild(img);
+        btn.addEventListener("click", (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          setCutTool(item.tool);
+        });
+        container.appendChild(btn);
+        return btn;
+      });
+
+      function updateRingPosition(){
+        center.style.left = `${cx}px`;
+        center.style.top = `${cy}px`;
+        items.forEach((item, i)=>{
+          const angle = itemAngle(i);
+          btnEls[i].style.left = `${cx + Math.cos(angle) * item.r}px`;
+          btnEls[i].style.top = `${cy + Math.sin(angle) * item.r}px`;
+        });
+      }
+
+      function updateCenterRotation(){
+        center.style.transform = `translate(-50%, -50%) rotate(${centerRotation - Math.PI}rad)`;
+      }
+
+      function highlightNearest(pointerAngle){
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        items.forEach((item, i)=>{
+          let diff = pointerAngle - itemAngle(i);
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          if (Math.abs(diff) < bestDist){
+            bestDist = Math.abs(diff);
+            bestIdx = i;
+          }
+        });
+        btnEls.forEach((btn, i)=>{
+          btn.style.transform = i === bestIdx
+            ? "translate(-50%, -50%) scale(1.32)"
+            : "translate(-50%, -50%) scale(1)";
+          btn.style.filter = i === bestIdx ? "brightness(1.36)" : "none";
+        });
+        if (bestIdx >= 0 && bestIdx !== hoveredIdx) hapticTick();
+        return bestIdx;
+      }
+
+      center.addEventListener("pointerdown", (e)=>{
+        centerPointerId = e.pointerId;
+        centerStartX = e.clientX;
+        centerStartY = e.clientY;
+        draggingDial = false;
+        movingRing = false;
+        hoveredIdx = -1;
+        center.setPointerCapture?.(e.pointerId);
+        clearTimeout(moveTimer);
+        moveTimer = setTimeout(()=>{
+          movingRing = true;
+          moveOffsetX = e.clientX - cx;
+          moveOffsetY = e.clientY - cy;
+          center.style.filter = "brightness(1.14)";
+          center.style.cursor = "grabbing";
+        }, moveLongPressMs);
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      center.addEventListener("pointermove", (e)=>{
+        if (centerPointerId !== e.pointerId) return;
+        const moved = Math.hypot(e.clientX - centerStartX, e.clientY - centerStartY);
+        if (movingRing){
+          cx = clamp(e.clientX - moveOffsetX, pad, window.innerWidth - pad);
+          cy = clamp(e.clientY - moveOffsetY, pad, window.innerHeight - pad);
+          updateRingPosition();
+        } else {
+          if (!draggingDial && moved > rotateThreshold){
+            clearTimeout(moveTimer);
+            draggingDial = true;
+          }
+          if (draggingDial){
+            const angle = Math.atan2(e.clientY - cy, e.clientX - cx);
+            centerRotation = angle;
+            updateCenterRotation();
+            hoveredIdx = highlightNearest(angle);
+          }
+        }
+        e.preventDefault();
+      });
+
+      const finishDial = (e)=>{
+        if (centerPointerId !== e.pointerId) return;
+        clearTimeout(moveTimer);
+        if (draggingDial && hoveredIdx >= 0) setCutTool(items[hoveredIdx].tool);
+        centerPointerId = null;
+        draggingDial = false;
+        movingRing = false;
+        center.style.filter = "";
+        center.style.cursor = "grab";
+        e.preventDefault();
+      };
+      center.addEventListener("pointerup", finishDial);
+      center.addEventListener("pointercancel", finishDial);
+
+      updateRingPosition();
+      updateCenterRotation();
+      setCutTool(cutTool);
     }
 
     function beginCutMode(){
@@ -4665,8 +4830,11 @@ async function initModel(){
       editMode = "cut";
       brushPanel.style.display = "none";
       sidebar.style.display = "none";
-      cutPanel.style.display = "flex";
       stage.classList.add("cutPreviewActive");
+      const selectedRect = selected.el.getBoundingClientRect();
+      const ringX = selectedRect.right + 12;
+      const ringY = selectedRect.top + selectedRect.height * 0.72;
+      showCutToolRing(ringX, ringY);
       setCutTool(cutTool || "rect");
     }
 
@@ -4674,7 +4842,7 @@ async function initModel(){
       if (!cutSession) return false;
       const session = cutSession;
       cutSession = null;
-      cutPanel.style.display = "none";
+      closeCutToolRing();
       editMode = "stretch";
       stage.classList.remove("cutPreviewActive");
       hideROI();
@@ -4794,12 +4962,6 @@ async function initModel(){
         showHint("CUT MP failed", 900);
       }
     }
-
-    cutPanel?.addEventListener("click", (e)=>{
-      const btn = e.target.closest("[data-cut-tool]");
-      if (!btn) return;
-      setCutTool(btn.dataset.cutTool);
-    });
 
     function attachStickerInteractions(st){
       const el = st.el;
@@ -8208,7 +8370,7 @@ function showFunctionCircle(initCx, initCy) {
         { name: "Noise",   png: "noise.png",   id: "noise",   w: 45, r: 110 },
         { name: "Side",    png: "side.png",    id: "side",    w: 35, r: 105 },
         { name: "Mosaic",  png: "mosaic.png",  id: "mosaic",  w: 45, r: 100 },
-        { name: "Cut",     label: "CUT",        id: "cut",     w: 38, r: 100 }
+        { name: "Cut",     png: "cut.png",      id: "cut",     w: 45, r: 100 }
     ];
 
     const _existing = document.getElementById("funcCircleContainer");
@@ -8513,7 +8675,7 @@ function closePanels() {
     if (cutSession) finishCutMode({ commit:true });
     brushPanel.style.display = "none";
     sidebar.style.display = "none";
-    cutPanel.style.display = "none";
+    closeCutToolRing();
 }
 
 function openCircularControl(funcId, cx, cy) {
