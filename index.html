@@ -2254,7 +2254,7 @@
       const cy = clamp(clientY, pad, window.innerHeight - pad);
       const items = [
         { mode:"mp",   png:"MP.png",   alt:"MP",   w:44, r:100 },
-        { mode:"draw", png:"draw.png", alt:"DRAW", w:58, r:105 },
+        { mode:"draw", png:"draw2.png", alt:"DRAW", w:58, r:105 },
         { mode:"rect", png:"rect.png", alt:"RECT", w:44, r:110 },
         { mode:"grid", png:"grid.png", alt:"GRID", w:50, r:110 }
       ];
@@ -6980,10 +6980,15 @@ function showGuideStep(step){
   if (step === "leftClose" || step === "rightOpen" || step === "rightClose"){
     requestAnimationFrame(()=>{
       const arrow = overlay.querySelector(".guideArrow");
+      const guide = overlay.querySelector(".guideText");
       const flipTarget = document.querySelector("#btnFlip img") || document.getElementById("btnFlip");
       const rect = flipTarget?.getBoundingClientRect?.();
       if (!arrow || !rect) return;
-      arrow.style.top = `${Math.max(8, rect.top + rect.height / 2 - arrow.offsetHeight / 2)}px`;
+      const centerY = rect.top + rect.height / 2;
+      arrow.style.top = `${Math.max(8, centerY - arrow.offsetHeight / 2)}px`;
+      if (guide){
+        guide.style.top = `${Math.max(8, centerY - guide.offsetHeight / 2)}px`;
+      }
     });
   }
 }
