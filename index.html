@@ -308,6 +308,12 @@
       z-index: 8;
       pointer-events:none;
     }
+    #stage.cutPreviewActive #drawLayer{
+      z-index:14;
+    }
+    #stage.cutPreviewActive #roiBox{
+      z-index:15;
+    }
     
     /* ---------------- Sticker 贴纸元素 ---------------- */
     .sticker{
@@ -420,6 +426,37 @@
       justify-content:center;
       background:transparent;
       pointer-events:none;
+    }
+    #cutPanel{
+      position:fixed;
+      left:50%;
+      bottom:calc(18px + env(safe-area-inset-bottom));
+      transform:translateX(-50%);
+      z-index:10020;
+      display:none;
+      gap:5px;
+      align-items:center;
+      padding:5px;
+      background:rgba(0,0,0,.52);
+      border:1px solid rgba(255,255,255,.18);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+      pointer-events:auto;
+    }
+    #cutPanel button{
+      min-width:42px;
+      height:28px;
+      padding:0 7px;
+      border:1px solid transparent;
+      border-radius:0;
+      background:transparent;
+      color:#fff;
+      font:700 9px Helvetica, Arial, sans-serif;
+      cursor:pointer;
+    }
+    #cutPanel button.active{
+      border-color:#fff;
+      background:rgba(255,255,255,.18);
     }
     #brushPanel * {
       pointer-events:auto;
@@ -1349,6 +1386,9 @@
       top:45%;
       animation:guideArrowRight 1.05s ease-in-out infinite;
     }
+    .guideArrow.right.openRight{
+      animation:guideArrowLeft 1.05s ease-in-out infinite;
+    }
     .guideText{
       position:absolute;
       max-width:210px;
@@ -1388,6 +1428,15 @@
       transform:translateX(-50%);
       text-align:center;
       max-width:230px;
+    }
+    .guideText.startCamera{
+      left:104px;
+      top:78px;
+      max-width:190px;
+    }
+    .guideText.leftClose{
+      left:54px;
+      top:45%;
     }
     @keyframes guideArrowLeft{
       0%,100%{ transform:translateX(14px); opacity:.28; }
@@ -1954,6 +2003,14 @@
     </div>
   </div>
 
+  <div id="cutPanel" aria-label="Cut tools">
+    <button type="button" data-cut-tool="mp">MP</button>
+    <button type="button" data-cut-tool="draw">DRAW</button>
+    <button type="button" data-cut-tool="rect">RECT</button>
+    <button type="button" data-cut-tool="erase">ERASE</button>
+    <button type="button" data-cut-tool="restore">RESTORE</button>
+  </div>
+
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
       
@@ -1980,6 +2037,7 @@
       // 编辑栏
       const editbar = document.getElementById("editbar");
       const brushPanel = document.getElementById("brushPanel");
+      const cutPanel = document.getElementById("cutPanel");
       const radiusEl = document.getElementById("radius");
       const strengthEl = document.getElementById("strength");
       const radiusLabelEl = document.getElementById("radiusLabel");
@@ -3032,6 +3090,8 @@ blurBtn.addEventListener("click", () => {
     let editMode = "stretch";
     let paintUndoStack = [];
     let paintRedoStack = [];
+    let cutSession = null;
+    let cutTool = "rect";
 
     let InteractiveSegmenter = null;
     let FilesetResolver = null;
@@ -4126,7 +4186,7 @@ function assignDocksForField(){
 
         loader.style.display = "none";
         resizeDrawLayer();
-        completeGuideStep("camera");
+        completeGuideStep("startCamera");
 
         showHint("MP: tap screen = segmentation; sticker: tap = select, drag = move; two fingers = rotate/scale", 1800);
       } catch(e){
@@ -4225,11 +4285,16 @@ async function initModel(){
     }
 
     loader.style.display = "none";
+    clearTimeout(showHint._t);
+    hint.classList.remove("show");
+    startOnboardingGuide();
 
   }catch(err){
     const details = initErrorText(err);
     console.error("[MP init failed]", err);
-    loader.innerText = `Failed to load model\n${details.slice(0, 180)}`;
+    loader.style.display = "none";
+    showHint("MediaPipe model failed to load. Other capture modes are still available.", 1800);
+    setTimeout(startOnboardingGuide, 1900);
   }
 }
 
@@ -4352,6 +4417,7 @@ async function initModel(){
 
     function selectSticker(st){
       const changed = selected !== st;
+      if (changed && cutSession) finishCutMode({ commit:true });
       if (selected && changed) selected.el.classList.remove("selected");
       selected = st;
       st.el.classList.add("selected");
@@ -4549,6 +4615,168 @@ async function initModel(){
       return { x, y };
     }
 
+    function copyCanvas(source){
+      const copy = document.createElement("canvas");
+      copy.width = source.width;
+      copy.height = source.height;
+      copy.getContext("2d").drawImage(source, 0, 0);
+      return copy;
+    }
+
+    function setCutTool(tool){
+      cutTool = tool;
+      cutPanel?.querySelectorAll("[data-cut-tool]").forEach(btn=>{
+        btn.classList.toggle("active", btn.dataset.cutTool === tool);
+      });
+      const messages = {
+        mp: "CUT MP: tap inside the sticker",
+        draw: "CUT DRAW: draw the area to keep",
+        rect: "CUT RECT: drag the area to keep",
+        erase: "CUT ERASE: paint pixels away",
+        restore: "CUT RESTORE: paint original pixels back"
+      };
+      showHint(messages[tool] || "CUT", 900);
+    }
+
+    function beginCutMode(){
+      if (!selected) return;
+      if (!cutSession || cutSession.st !== selected){
+        cutSession = {
+          st: selected,
+          originalSnap: captureStickerState(selected),
+          sourceCanvas: copyCanvas(selected.el),
+          changed: false
+        };
+      }
+      editMode = "cut";
+      brushPanel.style.display = "none";
+      sidebar.style.display = "none";
+      cutPanel.style.display = "flex";
+      stage.classList.add("cutPreviewActive");
+      setCutTool(cutTool || "rect");
+    }
+
+    function finishCutMode({ commit = true } = {}){
+      if (!cutSession) return false;
+      const session = cutSession;
+      cutSession = null;
+      cutPanel.style.display = "none";
+      editMode = "stretch";
+      stage.classList.remove("cutPreviewActive");
+      hideROI();
+      clearPathPreview();
+
+      if (!commit){
+        restoreStickerState(session.st, session.originalSnap);
+        return true;
+      }
+
+      if (session.changed && session.originalSnap){
+        paintUndoStack.push(session.originalSnap);
+        paintRedoStack = [];
+        if (paintUndoStack.length > 24) paintUndoStack.shift();
+        trimStickerCanvasToContent(session.st, 2);
+      }
+      return true;
+    }
+
+    function keepCutRect(canvas, a, b){
+      const x = Math.min(a.x, b.x);
+      const y = Math.min(a.y, b.y);
+      const w = Math.abs(b.x - a.x);
+      const h = Math.abs(b.y - a.y);
+      if (w < 2 || h < 2) return;
+      const ctx = canvas.getContext("2d");
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.fillStyle = "#000";
+      ctx.fillRect(x, y, w, h);
+      ctx.restore();
+      if (cutSession) cutSession.changed = true;
+    }
+
+    function keepCutPath(canvas, points){
+      if (!points || points.length < 3) return;
+      const ctx = canvas.getContext("2d");
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      points.slice(1).forEach(p=>ctx.lineTo(p.x, p.y));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      if (cutSession) cutSession.changed = true;
+    }
+
+    function paintCutBrush(canvas, point, restore){
+      const ctx = canvas.getContext("2d");
+      const cssScale = canvas.width / Math.max(1, canvas.getBoundingClientRect().width);
+      const radius = 24 * cssScale;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      ctx.clip();
+      if (restore && cutSession?.sourceCanvas){
+        ctx.globalCompositeOperation = "source-over";
+        ctx.drawImage(cutSession.sourceCanvas, 0, 0);
+      } else {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.fillStyle = "#000";
+        ctx.fillRect(point.x - radius, point.y - radius, radius * 2, radius * 2);
+      }
+      ctx.restore();
+      if (cutSession) cutSession.changed = true;
+    }
+
+    async function applyCutMP(st, local){
+      if (!interactiveSegmenter){
+        showHint("MediaPipe model is not ready", 900);
+        return;
+      }
+      showHint("Cutting...", 700);
+      try{
+        const result = await new Promise((resolve, reject)=>{
+          try{
+            interactiveSegmenter.segment(st.el, {
+              keypoint: {
+                x: clamp(local.x / st.el.width, 0, 1),
+                y: clamp(local.y / st.el.height, 0, 1)
+              }
+            }, resolve);
+          }catch(err){
+            reject(err);
+          }
+        });
+        if (!result?.categoryMask) throw new Error("No segmentation mask");
+
+        const mask = result.categoryMask.getAsFloat32Array();
+        const ctx = st.el.getContext("2d", { willReadFrequently:true });
+        const img = ctx.getImageData(0, 0, st.el.width, st.el.height);
+        const px = clamp(Math.floor(local.x), 0, st.el.width - 1);
+        const py = clamp(Math.floor(local.y), 0, st.el.height - 1);
+        const clicked = mask[py * st.el.width + px] >= 0.4;
+        const count = Math.min(mask.length, st.el.width * st.el.height);
+        for (let i = 0; i < count; i++){
+          if ((mask[i] >= 0.4) !== clicked) img.data[i * 4 + 3] = 0;
+        }
+        ctx.putImageData(img, 0, 0);
+        result.categoryMask.close?.();
+        if (cutSession) cutSession.changed = true;
+        showHint("CUT MP applied", 700);
+      }catch(err){
+        console.error("cut MP failed:", err);
+        showHint("CUT MP failed", 900);
+      }
+    }
+
+    cutPanel?.addEventListener("click", (e)=>{
+      const btn = e.target.closest("[data-cut-tool]");
+      if (!btn) return;
+      setCutTool(btn.dataset.cutTool);
+    });
+
     function attachStickerInteractions(st){
       const el = st.el;
 
@@ -4559,9 +4787,14 @@ async function initModel(){
       let moveUndoCaptured = false;
       const DRAG_THRESHOLD = 6;
       let lastLocal = null;
+      let cutStartLocal = null;
+      let cutPathLocal = [];
+      let cutStartStage = null;
+      let cutPathStage = [];
 
       el.addEventListener("pointerdown", (e)=>{
-        if (!alphaHitTest(el, e.clientX, e.clientY)) return;
+        const isCuttingThisSticker = cutSession?.st === st;
+        if (!isCuttingThisSticker && !alphaHitTest(el, e.clientX, e.clientY)) return;
 
         if (funcCircleOpen) return;
 
@@ -4583,7 +4816,19 @@ async function initModel(){
         st._physLock = true;
         st.vx = st.vy = st.av = 0;
 
-        if (editbar.style.display === "flex" || brushPanel.style.display === "flex") {
+        if (isCuttingThisSticker){
+          lastLocal = getLocalPointOnCanvas(el, e.clientX, e.clientY);
+          cutStartLocal = lastLocal;
+          cutPathLocal = lastLocal ? [lastLocal] : [];
+          cutStartStage = localPointFromClient(e.clientX, e.clientY);
+          cutPathStage = cutStartStage ? [{ x:cutStartStage.x, y:cutStartStage.y }] : [];
+          if (cutTool === "mp" && lastLocal){
+            applyCutMP(st, lastLocal);
+          }
+          if ((cutTool === "erase" || cutTool === "restore") && lastLocal){
+            paintCutBrush(el, lastLocal, cutTool === "restore");
+          }
+        } else if (editbar.style.display === "flex" || brushPanel.style.display === "flex") {
           lastLocal = getLocalPointOnCanvas(el, e.clientX, e.clientY);
           pushUndoForSelected();
         } else {
@@ -4599,6 +4844,32 @@ async function initModel(){
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
         const dist = Math.hypot(dx, dy);
+
+        if (cutSession?.st === st){
+          const local = getLocalPointOnCanvas(el, e.clientX, e.clientY);
+          if (!local) return;
+          if (cutTool === "draw"){
+            cutPathLocal.push(local);
+            const stagePoint = localPointFromClient(e.clientX, e.clientY);
+            cutPathStage.push({ x:stagePoint.x, y:stagePoint.y });
+            drawPathPreview(cutPathStage);
+          }
+          if (cutTool === "rect" && cutStartStage){
+            const stagePoint = localPointFromClient(e.clientX, e.clientY);
+            showROI({
+              x:Math.min(cutStartStage.x, stagePoint.x),
+              y:Math.min(cutStartStage.y, stagePoint.y),
+              w:Math.abs(stagePoint.x - cutStartStage.x),
+              h:Math.abs(stagePoint.y - cutStartStage.y)
+            });
+          }
+          if (cutTool === "erase" || cutTool === "restore"){
+            paintCutBrush(el, local, cutTool === "restore");
+          }
+          lastLocal = local;
+          e.preventDefault();
+          return;
+        }
 
         if (editbar.style.display !== "flex" && !funcCircleOpen && brushPanel.style.display !== "flex") {
           if (dist > DRAG_THRESHOLD) moved = true;
@@ -4657,8 +4928,23 @@ if (editMode === "mblur"){
       }, { passive:false });
 
       const end = (e)=>{
+        if (cutSession?.st === st){
+          const endLocal = getLocalPointOnCanvas(el, e.clientX, e.clientY) || lastLocal;
+          if (cutTool === "rect" && cutStartLocal && endLocal){
+            keepCutRect(el, cutStartLocal, endLocal);
+          }
+          if (cutTool === "draw"){
+            keepCutPath(el, cutPathLocal);
+          }
+          hideROI();
+          clearPathPreview();
+        }
         isDown = false;
         lastLocal = null;
+        cutStartLocal = null;
+        cutPathLocal = [];
+        cutStartStage = null;
+        cutPathStage = [];
         moved = false;
         try{ el.releasePointerCapture(e.pointerId); }catch{}
         st._physLock = false; // ✅ release lock
@@ -6438,6 +6724,7 @@ async function saveSelectedStickerToLibrary(){
       if (await applyPendingGrid()) return;
       finishCaptureControls();
       saveBrushPanelToSettings();
+      finishCutMode({ commit:true });
       if (activeBrushTool === "bw" || activeBrushTool === "noise"){
         updateLiveEffectPreview();
         endLiveEffectPreview({ commit: true });
@@ -6625,11 +6912,9 @@ async function openLibraryPanel(mode, triggerEl = null){
   requestAnimationFrame(()=>window.dispatchEvent(new Event("resize")));
 }
 
-let guideStep = "left";
+let guideStep = "boot";
 let guideOverlay = null;
-let guideLeftOpened = false;
-let guideRightOpened = false;
-let guideCameraStarted = false;
+let onboardingStarted = false;
 const phoneLayoutMQ = window.matchMedia("(max-width: 699px) and (pointer: coarse)");
 
 function isPhoneLayout(){
@@ -6639,6 +6924,17 @@ function isPhoneLayout(){
 function clearGuideOverlay(){
   guideOverlay?.remove();
   guideOverlay = null;
+}
+
+function startOnboardingGuide(){
+  if (!isPhoneLayout() || onboardingStarted) return;
+  onboardingStarted = true;
+  clearGuideOverlay();
+  guideStep = "startCamera";
+  setRightToolsOpen(false);
+  setLeftToolsOpen(true);
+  document.getElementById("globalGroup")?.classList.add("expanded");
+  requestAnimationFrame(()=>showGuideStep("startCamera"));
 }
 
 function showGuideStep(step){
@@ -6653,20 +6949,24 @@ function showGuideStep(step){
 
   const overlay = document.createElement("div");
   overlay.id = "guideOverlay";
-  if (step === "left"){
+  if (step === "startCamera"){
+    overlay.innerHTML = `
+      <div class="guideText startCamera">Tap Start Camera to begin.</div>
+    `;
+  } else if (step === "leftClose"){
     overlay.innerHTML = `
       <div class="guideArrow left">&#8592;</div>
-      <div class="guideText left">Swipe right from the left edge to open Start / Flip / Library.</div>
+      <div class="guideText leftClose">Swipe left to close Global Functions.</div>
     `;
-  } else if (step === "right"){
+  } else if (step === "rightOpen"){
     overlay.innerHTML = `
-      <div class="guideArrow right">&#8594;</div>
+      <div class="guideArrow right openRight">&#8592;</div>
       <div class="guideText right">Swipe left from the right edge to open Capture / Video / Physics.</div>
     `;
-  } else if (step === "camera"){
+  } else if (step === "rightClose"){
     overlay.innerHTML = `
-      <div class="guideArrow left">&#8592;</div>
-      <div class="guideText left">Swipe right from the left edge again, then tap Start Camera.</div>
+      <div class="guideArrow right">&#8594;</div>
+      <div class="guideText right">Swipe right to close the tool drawer.</div>
     `;
   } else if (step === "capture"){
     overlay.innerHTML = `
@@ -6678,18 +6978,24 @@ function showGuideStep(step){
   guideOverlay = overlay;
 }
 
+function queueGuideStep(step, delay){
+  guideStep = step;
+  setTimeout(()=>{
+    if (guideStep === step) showGuideStep(step);
+  }, delay);
+}
+
 function completeGuideStep(step){
   if (guideStep !== step) return;
   clearGuideOverlay();
-  if (step === "left"){
-    guideLeftOpened = true;
-    guideStep = "leftClose";
-  } else if (step === "right"){
-    guideRightOpened = true;
-    guideStep = "rightClose";
-  } else if (step === "camera"){
-    guideCameraStarted = true;
-    setTimeout(()=>showGuideStep("capture"), 520);
+  if (step === "startCamera"){
+    queueGuideStep("leftClose", 420);
+  } else if (step === "leftClose"){
+    queueGuideStep("rightOpen", 420);
+  } else if (step === "rightOpen"){
+    queueGuideStep("rightClose", 420);
+  } else if (step === "rightClose"){
+    queueGuideStep("capture", 520);
   } else if (step === "capture"){
     guideStep = "done";
   }
@@ -6697,24 +7003,19 @@ function completeGuideStep(step){
 
 function setLeftToolsOpen(open){
   document.body.classList.toggle("leftToolsOpen", !!open);
-  if (open) completeGuideStep("left");
   if (!open){
     collapseFunctionGroups(document.getElementById("globalGroup"));
     setLibraryDrawerOpen(false);
-    if (guideLeftOpened && !guideRightOpened && guideStep === "leftClose"){
-      setTimeout(()=>showGuideStep("right"), 420);
-    }
+    completeGuideStep("leftClose");
   }
 }
 
 function setRightToolsOpen(open){
   document.body.classList.toggle("rightToolsOpen", !!open);
-  if (open) completeGuideStep("right");
+  if (open) completeGuideStep("rightOpen");
   if (!open){
     collapseFunctionGroups(document.getElementById("rightColumn"));
-    if (guideRightOpened && !guideCameraStarted && guideStep === "rightClose"){
-      setTimeout(()=>showGuideStep("camera"), 420);
-    }
+    completeGuideStep("rightClose");
   }
 }
 
@@ -6807,10 +7108,6 @@ setupHorizontalToolDrawer({
   setOpen: setRightToolsOpen,
   openDirection: -1
 });
-
-if (isPhoneLayout()){
-  setTimeout(()=>showGuideStep("left"), 900);
-}
 
 btnLibModeStickers?.addEventListener("click", async ()=>openLibraryPanel("stickers"));
 btnLibModeArchive?.addEventListener("click", async ()=>openLibraryPanel("archive"));
@@ -7868,7 +8165,8 @@ function showFunctionCircle(initCx, initCy) {
         { name: "B&W",     png: "bw.png",      id: "bw",      w: 40, r: 110 },
         { name: "Noise",   png: "noise.png",   id: "noise",   w: 45, r: 110 },
         { name: "Side",    png: "side.png",    id: "side",    w: 35, r: 105 },
-        { name: "Mosaic",  png: "mosaic.png",  id: "mosaic",  w: 45, r: 100 }
+        { name: "Mosaic",  png: "mosaic.png",  id: "mosaic",  w: 45, r: 100 },
+        { name: "Cut",     label: "CUT",        id: "cut",     w: 38, r: 100 }
     ];
 
     const _existing = document.getElementById("funcCircleContainer");
@@ -7952,14 +8250,22 @@ function showFunctionCircle(initCx, initCy) {
         btn.style.transition = "transform 0.1s, filter 0.1s";
         btn.style.transform = "translate(-50%, -50%)";
 
-        const img = document.createElement("img");
-        img.src = "assets/" + func.png;
-        img.alt = func.name;
-        img.style.width = (func.w || 45) + "px";
-        img.style.height = "auto";
-        img.draggable = false;
-
-        btn.appendChild(img);
+        if (func.png){
+            const img = document.createElement("img");
+            img.src = "assets/" + func.png;
+            img.alt = func.name;
+            img.style.width = (func.w || 45) + "px";
+            img.style.height = "auto";
+            img.draggable = false;
+            btn.appendChild(img);
+        } else {
+            const label = document.createElement("span");
+            label.textContent = func.label || func.name;
+            label.style.color = "#fff";
+            label.style.font = "700 11px Helvetica, Arial, sans-serif";
+            label.style.textShadow = "0 1px 5px rgba(0,0,0,.75)";
+            btn.appendChild(label);
+        }
         container.appendChild(btn);
         btnEls.push(btn);
 
@@ -8162,8 +8468,10 @@ function showFunctionCircle(initCx, initCy) {
 // ======================== 功能环 → 调用真实编辑函数 ========================
 function closePanels() {
     if (liveEffectPreview) endLiveEffectPreview({ commit: true });
+    if (cutSession) finishCutMode({ commit:true });
     brushPanel.style.display = "none";
     sidebar.style.display = "none";
+    cutPanel.style.display = "none";
 }
 
 function openCircularControl(funcId, cx, cy) {
@@ -8207,6 +8515,9 @@ function openCircularControl(funcId, cx, cy) {
         case "mosaic":
             showBrushPanelFor("mosaic");
             showHint("Mosaic brush: drag on sticker", 900);
+            break;
+        case "cut":
+            beginCutMode();
             break;
     }
 }
