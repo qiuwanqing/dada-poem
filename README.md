@@ -136,7 +136,6 @@ This keeps archive thumbnails lightweight while preserving the ability to reopen
 ## Credits
 
 Built as an experimental camera-poetry interface by Qiu Wanqing.
- Qiu Wanqing
 
 The project uses:
 
