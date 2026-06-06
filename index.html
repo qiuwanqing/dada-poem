@@ -4,8 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <title>dada poem</title>
+  <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="assets/app-icon.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="assets/app-icon.png" />
+  <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-title" content="dada poem" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -8936,6 +8938,15 @@ function showCircularSelector(cx, cy, minVal, maxVal, imgPathPrefix, applyFunc) 
     container.addEventListener("click", e => {
         if(e.target === container) document.body.removeChild(container);
     });
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .then(() => console.log("[dada poem] service worker registered"))
+      .catch((err) => console.warn("[dada poem] service worker registration failed:", err));
+  });
 }
 
   </script>
