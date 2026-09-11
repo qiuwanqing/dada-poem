@@ -18,7 +18,6 @@ For best results, use Safari on iPhone/iPad or Chrome on Android. The page will 
  iPhone/iPad Safari Android Chrome Start Camera
 
 Because GitHub Pages is served over HTTPS, camera access and WASM/model loading should work in supported browsers.
-GitHub Pages HTTPS WASM/model
 
 ## Features
 
@@ -54,21 +53,6 @@ GitHub Pages HTTPS WASM/model
 │ └── magic_touch.tflite # MediaPipe interactive segmentation model
 ├── vendor/ # Local MediaPipe vision bundle and WASM files
 └── README.md
-```
-
-## Supabase
-
-The app currently uses Supabase for cloud sticker storage and poem archives.
- Supabase sticker library poem archive
-
-Relevant constants live in `index.html`:
- `index.html`
-
-```js
-const SUPABASE_URL = "...";
-const BUCKET_NAME = "library-images";
-const POEM_BUCKET_NAME = "poem-archive";
-const POEM_TABLE_NAME = "poem_items";
 ```
 
 ### Storage Buckets
