@@ -14,10 +14,7 @@ Open the hosted version:
 https://qiuwanqing.github.io/dada-poem
 ```
 
-For best results, use Safari on iPhone/iPad or Chrome on Android. The page will ask for camera permission when you tap Start Camera.
- iPhone/iPad Safari Android Chrome Start Camera
-
-Because GitHub Pages is served over HTTPS, camera access and WASM/model loading should work in supported browsers.
+For best results, use Safari on iPhone/iPad or Chrome on Android. 
 
 ## Features
 
@@ -55,55 +52,6 @@ Because GitHub Pages is served over HTTPS, camera access and WASM/model loading 
 └── README.md
 ```
 
-### Storage Buckets
-
-```txt
-library-images # transparent sticker PNGs
-poem-archive # poem previews and editable project JSON / poem JSON
-```
-
-### Tables
-
-```txt
-library_items # sticker metadata / sticker
-poem_items # poem archive metadata / poem archive
-```
-
-The frontend uses a publishable Supabase key. Before making a public deployment, configure Row Level Security and storage policies carefully.
- Supabase publishable key Row Level Security Storage policies
-
-## How It Works
-
-### Capture
-
-The camera stream is drawn into an offscreen canvas so the app can process frames consistently across mobile browsers.
- canvas
-
-MP capture uses MediaPipe Interactive Segmenter. The user taps a point in the video, the segmentation mask is generated, and the selected region is trimmed into a transparent sticker canvas.
-MP MediaPipe Interactive Segmenter mask sticker canvas
-
-Draw, Rect, and Grid modes use the current video frame and the user's selected screen region to generate sticker canvases.
-DrawRect Grid sticker canvas
-
-### Editing
-
-Each sticker is a canvas element positioned over the live video stage. Effects are applied directly to sticker canvas pixels or CSS filters depending on the tool.
- sticker canvas sticker CSS filter
-
-Circular dials use custom image assets and pointer rotation. On devices that support it, dial tick changes try to call `navigator.vibrate()`.
- `navigator.vibrate()`
-
-### Archive
-
-Saving a poem creates two representations:
- poem
-
-- a compressed preview image with the current video background
-- an editable JSON project containing sticker data and transforms
- sticker JSON
-
-This keeps archive thumbnails lightweight while preserving the ability to reopen and continue editing a poem.
- archive poem
 
 ## Mobile Notes
 
